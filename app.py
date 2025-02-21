@@ -68,21 +68,31 @@ def simplify_advice(detailed_advice):
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return "Couldn’t simplify the advice. Please try again."
+        return f"Error simplifying advice: {str(e)}"
 
 # Function to create income allocation pie chart
 def create_income_chart(income, monthly_expenses, investment_amount):
     annual_expenses = monthly_expenses * 12
-    savings_and_investments = income - annual_expenses
+    savings_and_investments = max(0, income - annual_expenses)  # Prevent negative savings
     if savings_and_investments < investment_amount:
-        investment_amount = savings_and_investments  # Adjust if investment exceeds savings
-    remaining_savings = savings_and_investments - investment_amount
+        investment_amount = savings_and_investments  # Cap investment at available savings
+    remaining_savings = max(0, savings_and_investments - investment_amount)  # Prevent negative remaining savings
 
     labels = ['Expenses', 'Investments', 'Remaining Savings']
     values = [annual_expenses, investment_amount, remaining_savings]
     colors = ['#FF9999', '#66B2FF', '#99FF99']
 
-    fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.3, marker=dict(colors=colors))])
+    # Filter out zero values to avoid empty pie slices
+    filtered_labels = [labels[i] for i in range(len(values)) if values[i] > 0]
+    filtered_values = [v for v in values if v > 0]
+    filtered_colors = [colors[i] for i in range(len(values)) if values[i] > 0]
+
+    fig = go.Figure(data=[go.Pie(
+        labels=filtered_labels, 
+        values=filtered_values, 
+        hole=0.3, 
+        marker=dict(colors=filtered_colors)
+    )])
     fig.update_layout(title_text="How Your Annual Income Breaks Down", title_x=0.5)
     return fig
 
@@ -98,23 +108,23 @@ with st.form(key="investment_form"):
         "Investment Amount (₹)", 
         min_value=0, 
         step=1000, 
-        help="The amount of money you want to invest right now, e.g., ₹5,00,000. This is the lump sum you’re ready to put into investments."
+        help="The amount of money you want to invest right now, e.g., ₹5,00,000."
     )
     risk = st.selectbox(
         "Risk Tolerance", 
         ["Low", "Medium", "High"], 
-        help="How comfortable you are with the value of your investment going up and down. 'Low' means you prefer safety, 'Medium' is a balance, and 'High' means you’re okay with bigger risks for potentially higher returns."
+        help="How comfortable you are with investment value changes."
     )
     goal = st.text_input(
         "Goal", 
-        help="What you’re saving for, e.g., retirement, buying a house, or your child’s education. This helps decide the best investment plan."
+        help="What you’re saving for, e.g., retirement, house, education."
     )
     horizon = st.slider(
         "Investment Horizon (Years)", 
         min_value=1, 
         max_value=30, 
         value=10, 
-        help="How long you plan to keep your money invested before using it, e.g., 10 years. Longer horizons can handle more risk, while shorter ones need safer options."
+        help="How long you’ll keep the money invested."
     )
 
     # Financial Profile
@@ -123,22 +133,22 @@ with st.form(key="investment_form"):
         "Annual Income (₹)", 
         min_value=0, 
         step=10000, 
-        help="Your total yearly income before taxes, e.g., ₹15,00,000. This helps us figure out your tax savings and investment capacity."
+        help="Your yearly income before taxes, e.g., ₹15,00,000."
     )
     tax_bracket = st.selectbox(
         "Tax Bracket (%)", 
         [10, 20, 30, 40], 
-        help="The percentage of your income you pay as tax, based on Indian tax slabs. For example, 30% applies to income above ₹15 lakh (2025 slabs). This affects tax-saving options."
+        help="Your tax rate based on Indian slabs."
     )
     existing_investments = st.text_area(
         "Existing Investments", 
-        help="List any investments you already have, e.g., '₹2 lakh in Fixed Deposit, ₹1 lakh in mutual funds', or write 'None'. This helps avoid overlap and plan better."
+        help="List current investments, e.g., '₹2 lakh in FD', or 'None'."
     )
     monthly_expenses = st.number_input(
         "Monthly Expenses (₹)", 
         min_value=0, 
         step=1000, 
-        help="How much you spend each month, e.g., ₹50,000. This shows how much income you can spare for investing after covering your costs."
+        help="Your monthly spending, e.g., ₹50,000."
     )
 
     submit_button = st.form_submit_button(label="Get Investment Advice")
@@ -159,15 +169,15 @@ if submit_button:
             # Show income allocation chart
             st.markdown("### How Your Income Breaks Down")
             fig = create_income_chart(income, monthly_expenses, amount)
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, use_container_width=True)  # Ensure chart fits container
 
-        # Add "Make It Simple" button
-        if 'detailed_advice' in st.session_state:
-            if st.button("Make It Simple"):
-                with st.spinner("Simplifying your strategy..."):
-                    simple_advice = simplify_advice(st.session_state['detailed_advice'])
-                    st.markdown("### Simplified Investment Plan")
-                    st.markdown(simple_advice)
+# "Make It Simple" button outside the form
+if 'detailed_advice' in st.session_state:
+    if st.button("Make It Simple"):
+        with st.spinner("Simplifying your strategy..."):
+            simple_advice = simplify_advice(st.session_state['detailed_advice'])
+            st.markdown("### Simplified Investment Plan")
+            st.markdown(simple_advice)
 
 st.markdown("""
     *Disclaimer*: This advice is generated based on general market trends and Indian tax laws as of 2025. 
