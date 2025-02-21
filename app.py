@@ -175,7 +175,7 @@ if submit_button:
 
 # "Make It Simple" button outside the form
 if 'detailed_advice' in st.session_state:
-    if st.button("Analyze More"):
+    if st.button("Analyze More."):
         with st.spinner("Analyzing your strategy..."):
             simple_advice = simplify_advice(st.session_state['detailed_advice'])
             st.markdown("### Simplified Investment Plan")
